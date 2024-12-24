@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Generador Polaroid</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+
+        .controls {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 15px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 100;
+            display: flex;
+            gap: 10px;
+        }
+
+        .gallery {
+            margin-top: 70px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .polaroid {
+            background: white;
+            padding: 15px 15px 60px 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+            cursor: pointer;
+            width: 100%;
+            max-width: 350px;
+            border: 1px solid #000;
+            aspect-ratio: 1/1.2;
+            margin: 0 auto;
+        }
+
+        .polaroid:hover {
+            transform: scale(1.02);
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(255,0,0,0.7);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: none;
+        }
+
+        .polaroid:hover .delete-btn {
+            display: flex;
+        }
+
+        .image-controls {
+            position: absolute;
+            bottom: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            gap: 5px;
+        }
+
+        .polaroid:hover .image-controls {
+            display: flex;
+        }
+
+        .control-btn {
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .polaroid {
+            position: relative;
+        }
+
+        .polaroid img {
+            width: 100%;
+            height: calc(100% - 60px);
+            object-fit: cover;
+            display: block;
+        }
+
+        @media print {
+            .controls {
+                display: none;
+            }
+
+            .gallery {
+                margin-top: 0;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10mm;
+            }
+
+            .polaroid {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+
+            @page {
+                size: A4 portrait;
+                margin: 10mm;
+            }
+            
+            @media print {
+                .polaroid {
+                    width: 100mm; /* 10cm */
+                    height: 120mm; /* 12cm */
+                    image-resolution: 300dpi;
+                }
+                
+                .polaroid img {
+                    image-resolution: 300dpi;
+                }
+                
+                .gallery {
+                    grid-template-columns: repeat(2, 100mm);
+                    justify-content: center;
+                    gap: 5mm;
+                }
+            }
+        }
+
+        .a3-print .gallery {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <label class="btn" for="fileInput">Subir Imágenes</label>
+        <input type="file" id="fileInput" multiple accept="image/*">
+        <button class="btn" onclick="printA4()">Imprimir A4</button>
+        <button class="btn" onclick="printA3()">Imprimir A3</button>
+    </div>
+    <div class="gallery" id="gallery"></div>
+
+    <script>
+        const gallery = document.getElementById('gallery');
+        const fileInput = document.getElementById('fileInput');
+
+        fileInput.addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const polaroid = document.createElement('div');
+                    polaroid.className = 'polaroid';
+                    
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.style.objectPosition = '50% 50%';
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-btn';
+                    deleteBtn.innerHTML = '×';
+                    deleteBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        polaroid.remove();
+                    };
+
+                    const controls = document.createElement('div');
+                    controls.className = 'image-controls';
+                    const directions = ['↑', '↓', '←', '→'];
+                    directions.forEach(dir => {
+                        const btn = document.createElement('button');
+                        btn.className = 'control-btn';
+                        btn.innerHTML = dir;
+                        btn.onclick = (e) => {
+                            e.stopPropagation();
+                            const current = img.style.objectPosition.split(' ').map(v => parseInt(v));
+                            switch(dir) {
+                                case '↑': 
+                                    current[1] -= 5;
+                                    break;
+                                case '↓': 
+                                    current[1] += 5;
+                                    break;
+                                case '←': 
+                                    current[0] -= 5;
+                                    break;
+                                case '→': 
+                                    current[0] += 5;
+                                    break;
+                            }
+                            img.style.objectPosition = `${current[0]}% ${current[1]}%`;
+                        };
+                        controls.appendChild(btn);
+                    });
+                    
+                    polaroid.appendChild(img);
+                    polaroid.appendChild(deleteBtn);
+                    polaroid.appendChild(controls);
+                    gallery.appendChild(polaroid);
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+
+        function printA4() {
+            document.body.classList.remove('a3-print');
+            window.print();
+        }
+
+        function printA3() {
+            document.body.classList.add('a3-print');
+            window.print();
+        }
+    </script>
+</body>
+</html>
